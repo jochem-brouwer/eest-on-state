@@ -1,60 +1,68 @@
-The purpose of this tool is to take Geth's chaindata and to output an analysis of the state there.
+Running EEST tests on top of any state
+=====
+This tool allows to build payloads on top of any state and run EEST tests. Following this procedure will:
 
-Snapshot chaindata can be download from: https://ethpandaops.io/data/snapshots/. Ensure you pick the target network and Geth as client. Place the snapshot after extracting the archive in this folder. The tool reads from `./snapshot/chaindata`.
+1. Launch a Geth node with an OverlayFS mount to prevent editing the original state/snapshot.
+2. Setup a MITM proxy to capture all the payloads/FCUs created by this tool or EEST to replay later.
+3. Setup the network by funding a test account and setting the gas limit to the desired value (60M)
+4. Run EEST test(s). This will invoke the block builder of the EL client.
+5. Replay the payloads. This will not run block builder logic, but directly the execution path.
 
-The goal is to read this snapshot and to provide useful data in the dump of that state snapshot. To name a few:
+Once a test payload has been made, it can be reran against a client at any time. By setting the state to the original state it will import and execute the blocks like on a live network (as instructed by the CL).
 
-- The number of accounts in the trie
-- The accounts sorted by their storage slot count (size of storage trie). We should measure the evolution over time here for all accounts.
-- The amount of unique code hashes on chain
-- The most used code hashes
-- Bonus: analysis of the code. For instance printing the amount of opcodes and their count. Both when treating each codeHash as unique code or all accounts with the same codeHash as using that opcode multiple times. PUSHx values should be grouped here.
+Quick setup
+===========
 
-TODO:
-
-Snapshot from EthPandaOps is a geth snapshot with args `--http.api=eth,net,web3,debug --http.vhosts=* --state.scheme=path --cache.preimages`. Ensure that `--state.scheme=path` yields the expected results.
-
-Quick run:
+Ensure geth datadir is under the `./snapshot` directory. For a fresh start, ensure `docker stop geth-bench` and to wipe the past changes to the state `rm -rf overlay-*` folders.
 
 ```
-wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
-tar -xzf go1.24.0.linux-amd64.tar.gz
-./go/bin/go mod tidy
-# Symlink snapshot to here
-ln -s /data/client_snapshots/geth/ snapshot
-./go/bin/go run ./analyzer/main.go
+# Ensure MITM is running
+python3 save_payloads.py
 ```
 
-For mainnet on a node with fast SSD on block 23360000, this job started at 01:34:26 and ended at 01:50:33 (commit of this tool: de82e801d14ab8aeacb732411943d82a8b931d70). So it currently takes under 20 minutes to read the mainnet snapshot.
+In another terminal:
 
-
-
-
-Stateful newpayload generator
-=============================
-
-For this, we want a stalled EL node listening at RPC 8545 and engine 8551. You can also use a docker image, ensure a snapshot or data is at ./snapshot. We will create an OverlayFS and use this as entry point for the docker image and we will execute docker against this. Good to know: OverlayFS will mount your snapshot in read-only mode, changes are written to overlay, so you can re-use the snapshot/db and you do not have to worry about corruptions of the db/snapshot (so you do not need to download/sync again).
-
-To do:
-
-If you do not have python
 ```
-sudo apt update
-sudo apt install python3
+python3 start_geth.py # Start Geth with the OverlayFS mount
+python3 start_test.py # Fund test account and set gas limit to desired value
 ```
 
-If you do not have pip
+Once this is done, ready to test! For XEN tests run this branch specifically: https://github.com/jochem-brouwer/execution-spec-tests/tree/xen-state-geth
+
+From EEST run:
+
 ```
-sudo apt install python3-pip
+uv run execute remote --engine-endpoint http://localhost:8550 --engine-jwt-secret-file /PATH/TO/THE/REPOSITORY/jwt/jwt.hex --rpc-endpoint http://localhost:8545 --rpc-seed-key 0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8 --fork Prague -m benchmark ./tests/benchmark/mainnet/test_state_xen.py --get-payload-wait-time 12 -k xen_approve_set
 ```
 
-Create venv:
+Notes: `--get-payload-wait-time 12` ensures EEST does not interrupt the payload building especially for the slow blocks. This number can be tweaked to allow for faster payload generation, but if EEST throws then the payload build time is too short (will resolve this issue in EEST).
+
+`--engine-endpoint` should point to the MITM in order to save the payloads.
+
+`--chain-id <NUMBER>` should be added for any non-mainnet chain.
+
+This test `xen_approve_set` is a short test which will spam-approve the XEN contract. It will thus approve() as much as approvals which are possible, to non-existing slots.
+
+Once the test is done, the `captures_engine_requests_[TIME].ndjson` file has captured the payloads which are necessary to re-run the payloads. It is now ok to wipe the state, so `docker kill geth-bench` and then `rm -rf overlay-*; umount overlay-mount; rm -r overlay-mount` to wipe the state. Now start geth `python start_geth.py`.
+
+To rerun the just-created payloads, `python3 send_payloads_and_fcu.py --requests-file captures_engine_requests_[TIME].ndjson`.
+
+Setup/Troubleshooting
+=====
+
 ```
 python3 -m venv venv
 source venv/bin/activate
-```
-
-Install deps:
-```
 pip install -r requirements.txt
 ```
+
+To setup Geth, ensure the state directory is in snapshot, such that it looks like this:
+
+```
+./snapshot
+├── blobpool
+├── chaindata
+├── nodes
+└── triedb
+```
+
