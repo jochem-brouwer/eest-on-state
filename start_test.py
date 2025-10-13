@@ -205,10 +205,6 @@ def main():
                 stagnant_rounds = 0  # gas decreased, good
         last_gas_limit = gas_limit
 
-        if gas_limit >= TARGET_GAS_LIMIT:
-            print(f"✅ Reached target gas limit ({gas_limit:,} >= {TARGET_GAS_LIMIT:,})")
-            break
-
         # 4. Submit new payload
         new_payload_req = {
             "jsonrpc": "2.0",
@@ -241,6 +237,10 @@ def main():
         r4 = requests.post(ENGINE_API_URL, json=final_fcu_req, headers=headers(secret_bytes))
         r4.raise_for_status()
         print("✅ Forkchoice updated to new head.")
+
+        if gas_limit >= TARGET_GAS_LIMIT:
+            print(f"✅ Reached target gas limit ({gas_limit:,} >= {TARGET_GAS_LIMIT:,})")
+            break
     print("Gas limit ready and account has been funded, ready to start EEST tests!")
 
 
