@@ -27,6 +27,7 @@ except Exception:
     print("This script requires the 'requests' library. Install with: pip install requests")
     sys.exit(1)
 
+NULL_HASH_32 = "0x" + "00" * 32
 
 def read_text_file_strip(path: Path) -> str:
     txt = path.read_text(encoding="utf-8").strip()
@@ -127,15 +128,16 @@ def main():
     if not jwt_path.exists():
         print(f"JWT file not found: {jwt_path}")
         sys.exit(2)
-    if not anchor_path.exists():
-        print(f"Anchor blockhash file not found: {anchor_path}")
-        sys.exit(2)
     if not requests_path.exists():
         print(f"Requests file not found: {requests_path}")
         sys.exit(2)
 
     jwt_token = read_text_file_strip(jwt_path)
-    anchor_hash = read_text_file_strip(anchor_path)
+    anchor_hash = NULL_HASH_32
+    if anchor_path.exists():
+        anchor_hash = read_text_file_strip(anchor_path)
+    else:
+        print(f"Anchor blockhash file not found: {anchor_path}, defaulting to 0x00..00")
 
     secret_bytes = bytes.fromhex(jwt_token)
 
