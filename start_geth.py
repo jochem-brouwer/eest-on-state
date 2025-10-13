@@ -47,6 +47,7 @@ def start_geth_container(chain: str, db_dir: Path, jwt_path: Path,
         "--datadir", "/db",
         "--verbosity", "3",
         "--maxpeers", "0",
+        "--miner.gasprice", "0"
     ]
     cp = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, text=True)
     return cp.stdout.strip()
