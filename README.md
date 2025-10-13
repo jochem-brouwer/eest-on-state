@@ -17,7 +17,7 @@ This is described more in-depth below, but these are the quick steps to run an E
 
 ```
 # Ensure MITM is running
-python3 save_payloads.py
+mitmdump --mode reverse:http://127.0.0.1:8551 -p 8550 -s save_payloads.py
 ```
 
 In another terminal:
@@ -43,7 +43,7 @@ Ensure geth datadir is under the `./snapshot` directory. For a fresh start, ensu
 
 ```
 # Ensure MITM is running
-python3 save_payloads.py
+mitmdump --mode reverse:http://127.0.0.1:8551 -p 8550 -s save_payloads.py
 ```
 
 In another terminal:
