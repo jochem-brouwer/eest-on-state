@@ -10,6 +10,32 @@ This tool allows to build payloads on top of any state and run EEST tests. Follo
 
 Once a test payload has been made, it can be reran against a client at any time. By setting the state to the original state it will import and execute the blocks like on a live network (as instructed by the CL).
 
+Overview
+========
+
+This is described more in-depth below, but these are the quick steps to run an EEST test on top of any chain state:
+
+```
+# Ensure MITM is running
+python3 save_payloads.py
+```
+
+In another terminal:
+```
+python3 start_geth.py # Start Geth with the OverlayFS mount
+python3 start_test.py # Fund test account and set gas limit to desired value
+```
+
+From EEST directory (from this remote/branch: https://github.com/jochem-brouwer/execution-spec-tests/tree/xen-state-geth):
+
+```
+uv run execute remote --engine-endpoint http://localhost:8550 --engine-jwt-secret-file /PATH/TO/THE/REPOSITORY/jwt/jwt.hex --rpc-endpoint http://localhost:8545 --rpc-seed-key 0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8 --fork Prague -m benchmark ./tests/benchmark/mainnet/test_state_xen.py --get-payload-wait-time 12 -k xen_approve_set
+```
+
+To replay payloads: `python3 send_payloads_and_fcu.py --requests-file captures_engine_requests_[TIME].ndjson`
+
+Wiping the created state: `rm -rf overlay-*; umount overlay-mount; rm -r overlay-mount`
+
 Quick setup
 ===========
 
