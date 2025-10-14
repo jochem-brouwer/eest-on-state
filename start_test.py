@@ -3,7 +3,7 @@
 engine_fcu_gaslimit_tracker.py
 
 Continuously drives the engine API sequence:
-  engine_forkchoiceUpdatedV3 → engine_getPayloadV3 → engine_newPayloadV4
+  engine_forkchoiceUpdatedV3 → engine_getPayloadV4 → engine_newPayloadV4
 to push block production until the gas limit reaches (or goes below)
 a target threshold.
 
@@ -178,7 +178,7 @@ def main():
         get_payload_req = {
             "jsonrpc": "2.0",
             "id": 2,
-            "method": "engine_getPayloadV3",
+            "method": "engine_getPayloadV4",
             "params": [payload_id]
         }
         r2 = requests.post(ENGINE_API_URL, json=get_payload_req, headers=headers(secret_bytes))
@@ -187,7 +187,7 @@ def main():
         payload = payload_resp.get("result", {}).get("executionPayload")
 
         if not payload:
-            raise RuntimeError("No executionPayload in getPayloadV3 result")
+            raise RuntimeError("No executionPayload in getPayloadV4 result")
 
         gas_limit = get_gas_limit_from_payload(payload)
         print(f"→ Payload gasLimit: {gas_limit:,}")
