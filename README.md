@@ -10,58 +10,42 @@ This tool allows to build payloads on top of any state and run EEST tests. Follo
 
 Once a test payload has been made, it can be reran against a client at any time. By setting the state to the original state it will import and execute the blocks like on a live network (as instructed by the CL).
 
-Overview
+Preparation
 ========
 
-This is described more in-depth below, but these are the quick steps to run an EEST test on top of any chain state:
+Ensure the datadir of your client is in `./snapshot`. If docker tooling is provided, the script will create an OverlayFS for you to prevent this tooling to edit any data of the original snapshot. If no tooling is provided it is recommended to use OverlayFS to prevent updates to the base snapshot. If no script is provided or you wish to use custom tooling, ensure that the engine API port is 8551, the jwt is read from `./jwt/jwt.hex` and the JSON RPC API port is 8545.
+
+For a fresh start, ensure `docker stop geth-bench` (or `besu-bench`) and to wipe the past changes to the state `rm -rf overlay-*` folders.
+
+Commands
+========
 
 ```
-# Ensure MITM is running
+# Ensure MITM is running to capture payloads
 mitmdump --mode reverse:http://127.0.0.1:8551 -p 8550 -s save_payloads.py
 ```
 
 In another terminal:
 ```
 python3 start_geth.py # Start Geth with the OverlayFS mount
+# Or python3 start_besu.py for Besu
 python3 start_test.py # Fund test account and set gas limit to desired value
 ```
 
-From EEST directory (from this remote/branch: https://github.com/jochem-brouwer/execution-spec-tests/tree/xen-state-geth):
+From the EEST repository (from this remote/branch: https://github.com/jochem-brouwer/execution-spec-tests/tree/xen-state-tests):
 
 ```
-uv run execute remote --engine-endpoint http://localhost:8550 --engine-jwt-secret-file /PATH/TO/THE/REPOSITORY/jwt/jwt.hex --rpc-endpoint http://localhost:8545 --rpc-seed-key 0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8 --fork Prague -m benchmark ./tests/benchmark/mainnet/test_state_xen.py --get-payload-wait-time 12 -k xen_approve_set
+uv run execute remote --engine-endpoint http://localhost:8550 --engine-jwt-secret-file /PATH/TO/THE/REPOSITORY/jwt/jwt.hex --rpc-endpoint http://localhost:8545 --rpc-seed-key 0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8 --fork Prague -m benchmark ./tests/benchmark/mainnet/test_state_xen.py --get-payload-wait-time 11 -k xen_approve_set
 ```
 
-To replay payloads: `python3 send_payloads_and_fcu.py --requests-file captures_engine_requests_[TIME].ndjson`
+This runs the EEST test (here: `test_xen_approve_set_only`) against the engine API. Your node will build the payload and EEST will ensure the client sets that payload as head block.
 
-Wiping the created state: `rm -rf overlay-*; umount overlay-mount; rm -r overlay-mount`
+To replay payloads (and to thus run the execution paths non-block builders use): `python3 send_payloads_and_fcu.py --requests-file captures_engine_requests_[TIME].ndjson`.
 
-Quick setup
-===========
+Notes
+=====
 
-Ensure geth datadir is under the `./snapshot` directory. For a fresh start, ensure `docker stop geth-bench` and to wipe the past changes to the state `rm -rf overlay-*` folders.
-
-```
-# Ensure MITM is running
-mitmdump --mode reverse:http://127.0.0.1:8551 -p 8550 -s save_payloads.py
-```
-
-In another terminal:
-
-```
-python3 start_geth.py # Start Geth with the OverlayFS mount
-python3 start_test.py # Fund test account and set gas limit to desired value
-```
-
-Once this is done, ready to test! For XEN tests run this branch specifically: https://github.com/jochem-brouwer/execution-spec-tests/tree/xen-state-geth
-
-From EEST run:
-
-```
-uv run execute remote --engine-endpoint http://localhost:8550 --engine-jwt-secret-file /PATH/TO/THE/REPOSITORY/jwt/jwt.hex --rpc-endpoint http://localhost:8545 --rpc-seed-key 0x45A915E4D060149EB4365960E6A7A45F334393093061116B197E3240065FF2D8 --fork Prague -m benchmark ./tests/benchmark/mainnet/test_state_xen.py --get-payload-wait-time 12 -k xen_approve_set
-```
-
-Notes: `--get-payload-wait-time 12` ensures EEST does not interrupt the payload building especially for the slow blocks. This number can be tweaked to allow for faster payload generation, but if EEST throws then the payload build time is too short (will resolve this issue in EEST).
+Notes to EEST command: `--get-payload-wait-time 11` ensures EEST does not interrupt the payload building especially for the slow blocks. This number can be tweaked to allow for faster payload generation, but if EEST throws then the payload build time is too short (will resolve this issue in EEST).
 
 `--engine-endpoint` should point to the MITM in order to save the payloads.
 
