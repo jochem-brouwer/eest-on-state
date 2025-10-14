@@ -150,8 +150,8 @@ def main():
         # 1. Build forkchoice + payloadAttributes
         forkchoice_state = {
             "headBlockHash": head_hash,
-            "safeBlockHash": NULL_HASH_32,
-            "finalizedBlockHash": NULL_HASH_32
+            "safeBlockHash": head_hash,
+            "finalizedBlockHash": head_hash
         }
 
         print(hex_uint(timestamp))
@@ -173,6 +173,9 @@ def main():
         payload_id = fcu_resp.get("result", {}).get("payloadId")
         if not payload_id:
             raise RuntimeError("No payloadId returned by engine_forkchoiceUpdatedV3")
+
+        time.sleep(1)
+
 
         # 2. Get payload
         get_payload_req = {
@@ -205,6 +208,10 @@ def main():
                 stagnant_rounds = 0  # gas decreased, good
         last_gas_limit = gas_limit
 
+        if payload.get('parentBeaconBlockRoot') is not None:
+            # Hotfix for Besu which sends parentBeaconBlockRoot in the EnginePayloadV3 response
+            payload.pop('parentBeaconBlockRoot', None)
+
         # 4. Submit new payload
         new_payload_req = {
             "jsonrpc": "2.0",
@@ -212,6 +219,7 @@ def main():
             "method": "engine_newPayloadV4",
             "params": [payload, [], NULL_HASH_32, []]
         }
+        print(new_payload_req)
         r3 = requests.post(ENGINE_API_URL, json=new_payload_req, headers=headers(secret_bytes))
         r3.raise_for_status()
         status = r3.json()["result"]["status"]
